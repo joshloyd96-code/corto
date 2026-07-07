@@ -4,8 +4,8 @@
   "description": "Learn French, Spanish & Italian vocab straight from images — no translation step.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#1a1b2e",
-  "theme_color": "#1a1b2e",
+  "background_color": "#1b3a2a",
+  "theme_color": "#1b3a2a",
   "icons": [
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },

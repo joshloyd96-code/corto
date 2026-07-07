@@ -1,7 +1,7 @@
 /* PictoLingo app logic. Data loaded from data/vocab.js and data/phrases.js */
 "use strict";
 const VOCAB=window.VOCAB, PACKS=window.PACKS, PPACKS=window.PPACKS,
-      PHRASES=window.PHRASES, WARMUPS=window.WARMUPS;
+      PHRASES=window.PHRASES, WARMUPS=window.WARMUPS, STORIES=window.STORIES||[];
 /* ============ VOCAB DATA ============
    [emoji, french, spanish, italian, pack]
    Nouns include the article; gender derives from it. Overrides after "|":
@@ -13,9 +13,11 @@ const LANGS = {
           newphrase:"Nouvelle phrase", buildIt:"Reconstruis la phrase", cont:"Continuer",
           check:"Vérifier", correct:"Correct !", wrong:"Pas tout à fait…", newword:"Nouveau mot",
           done:"Session terminée !", type:"Écris le mot…", voice:"Voix",
-          modes:["Choisir le mot","Choisir l'image","Écrire le mot"],
+          modes:["Choisir le mot","Choisir l'image","Écrire le mot","Écoute et choisis"],
+          trouble:"Mots difficiles", streak:"jours de suite",
+          stories:"Histoires", quiz:"Questions", listen2:"Écouter", storyDone:"Bien lu !",
           accents:"Attention aux accents :", seen:"appris", due:"à réviser", accuracy:"réussite",
-          chips:{m:"m",f:"f",pl:"pl",v:"verbe",a:"adj."},
+          chips:{m:"m",f:"f",pl:"pl",v:"verbe",a:"adj.",d:"adv."},
           warmTitle:"Immersion", warmSub:"Écoute… ton cerveau passe en français.",
           replay:"Réécouter", skip:"Passer", start:"C'est parti !"}},
   es:{flag:"🇪🇸", name:"Español", voice:"es-ES", idx:2,
@@ -23,9 +25,11 @@ const LANGS = {
           newphrase:"Frase nueva", buildIt:"Reconstruye la frase", cont:"Continuar",
           check:"Comprobar", correct:"¡Correcto!", wrong:"No exactamente…", newword:"Palabra nueva",
           done:"¡Sesión terminada!", type:"Escribe la palabra…", voice:"Voz",
-          modes:["Elige la palabra","Elige la imagen","Escribe la palabra"],
+          modes:["Elige la palabra","Elige la imagen","Escribe la palabra","Escucha y elige"],
+          trouble:"Palabras difíciles", streak:"días seguidos",
+          stories:"Historias", quiz:"Preguntas", listen2:"Escuchar", storyDone:"¡Bien leído!",
           accents:"Ojo con las tildes:", seen:"aprendidas", due:"para repasar", accuracy:"aciertos",
-          chips:{m:"m",f:"f",pl:"pl",v:"verbo",a:"adj."},
+          chips:{m:"m",f:"f",pl:"pl",v:"verbo",a:"adj.",d:"adv."},
           warmTitle:"Inmersión", warmSub:"Escucha… tu cerebro cambia al español.",
           replay:"Escuchar otra vez", skip:"Saltar", start:"¡Vamos!"}},
   it:{flag:"🇮🇹", name:"Italiano", voice:"it-IT", idx:3,
@@ -33,9 +37,11 @@ const LANGS = {
           newphrase:"Frase nuova", buildIt:"Ricostruisci la frase", cont:"Continua",
           check:"Verifica", correct:"Corretto!", wrong:"Non proprio…", newword:"Parola nuova",
           done:"Sessione finita!", type:"Scrivi la parola…", voice:"Voce",
-          modes:["Scegli la parola","Scegli l'immagine","Scrivi la parola"],
+          modes:["Scegli la parola","Scegli l'immagine","Scrivi la parola","Ascolta e scegli"],
+          trouble:"Parole difficili", streak:"giorni di fila",
+          stories:"Storie", quiz:"Domande", listen2:"Ascolta", storyDone:"Ben letto!",
           accents:"Occhio agli accenti:", seen:"imparate", due:"da ripassare", accuracy:"risposte esatte",
-          chips:{m:"m",f:"f",pl:"pl",v:"verbo",a:"agg."},
+          chips:{m:"m",f:"f",pl:"pl",v:"verbo",a:"agg.",d:"avv."},
           warmTitle:"Immersione", warmSub:"Ascolta… il tuo cervello passa all'italiano.",
           replay:"Ascolta di nuovo", skip:"Salta", start:"Andiamo!"}}
 };
@@ -78,6 +84,21 @@ function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/
 function chipHtml(w, lang){
   if(!w.g) return "";
   return `<span class="gchip ${w.g}">${LANGS[lang].ui.chips[w.g]||w.g}</span>`;
+}
+/* multi-emoji tableaux need smaller sizing */
+function graphemes(s){
+  try{ return [...new Intl.Segmenter(undefined,{granularity:"grapheme"}).segment(s)].length; }
+  catch(e){ return Array.from(s).length; }
+}
+function bigEmojiHtml(id){
+  const e = emojiFor(id), g = graphemes(e);
+  const size = g<=1? 6.5 : g===2? 4.4 : g===3? 3.4 : 2.8;
+  return `<div class="bigemoji" style="font-size:${size}rem">${e}</div>`;
+}
+function optEmojiStyle(id){
+  const g = graphemes(emojiFor(id));
+  const size = g<=1? 3 : g===2? 2.1 : 1.6;
+  return `font-size:${size}rem`;
 }
 /* phrase helpers */
 function phraseRaw(id, lang){ return PHRASES[id][lang]; }
@@ -162,8 +183,10 @@ let cur = {lang:null, screen:"home"};
 function renderHome(){
   stopSpeech();
   cur = {lang:null, screen:"home"};
+  const streak = getStreak();
   let html = `<div class="top"><div><h1>PictoLingo</h1>
-    <div class="sub">See it. Say it. No translation.</div></div></div>`;
+    <div class="sub">See it. Say it. No translation.</div></div>
+    ${streak? `<div class="stat" style="flex:0 0 auto;padding:10px 16px"><div class="n">🔥${streak}</div></div>`:""}</div>`;
   for(const lang of ["fr","es","it"]){
     const st = loadState(lang);
     const seen = Object.keys(st.cards).length;
@@ -275,10 +298,15 @@ function openLang(lang, skipWarm){
     <button class="bigbtn" onclick="startReview()" ${dueTotal? "":"disabled"}>
       <span>🔁 ${ui.review}</span><span class="cnt">${dueTotal}</span></button>
     <div class="prow">` +
-    ["🖼️→💬","💬→🖼️","🖼️→⌨️"].map((ic,i)=>
+    ["🖼️→💬","💬→🖼️","🖼️→⌨️","🔊→🖼️"].map((ic,i)=>
       `<button class="pbtn" onclick="startPractice(${i})" ${seen? "":"disabled"}>
         <div class="pi">${ic}</div><div class="pt">${ui.modes[i]}</div></button>`).join("") +
     `</div>`;
+  const trouble = troubleIds(st);
+  if(trouble.length >= 3){
+    html += `<button class="bigbtn secondary" onclick="startTrouble()">
+      <span>🔥 ${ui.trouble}</span><span class="cnt">${trouble.length}</span></button>`;
+  }
   // voice picker
   const cands = voicesFor(lang);
   const savedV = lsGet("pictolingo-voice-"+lang) || "";
@@ -323,7 +351,78 @@ function openLang(lang, skipWarm){
       ${pdue? `<span class="pdue">${pdue}</span>`: complete? `<span class="pdone">✓</span>`:""}
     </button>`;
   }
+  // stories
+  if(STORIES.length){
+    html += `<div class="modehdr">📖 ${ui.stories}</div>`;
+    STORIES.forEach((s,i)=>{
+      const done = st.st && st.st[i];
+      html += `<button class="packcard" onclick="renderStory(${i})">
+        <span class="picon">${s.e.split("»")[0]}</span>
+        <span style="flex:1"><div class="pname">${esc(s.t[lang])}</div></span>
+        ${done? `<span class="pdone">✓</span>`:""}
+      </button>`;
+    });
+  }
   app.innerHTML = html;
+}
+
+/* ============ story mode (graded readers) ============ */
+function renderStory(i){
+  stopSpeech();
+  cur.screen = "story";
+  const lang = cur.lang, ui = LANGS[lang].ui;
+  const s = STORIES[i];
+  app.innerHTML = `<div class="top">
+    <button class="backbtn" onclick="openLang('${lang}', true)">←</button>
+    <h1 style="font-size:1.2rem">${esc(s.t[lang])}</h1><span style="width:44px"></span></div>
+    <div style="text-align:center;font-size:2.6rem;margin-bottom:8px">${s.e}</div>
+    <div class="passage" style="font-style:normal">${esc(s.x[lang])}</div>
+    <div style="text-align:center"><button class="speak" onclick="speakStory(${i})" title="${ui.listen2}">🔊</button></div>
+    <button class="actionbtn" onclick="renderStoryQ(${i},0,0)">${ui.quiz} →</button>`;
+}
+function speakStory(i){ speak(STORIES[i].x[cur.lang], cur.lang, 0.95); }
+function renderStoryQ(i, qi, right){
+  stopSpeech();
+  const lang = cur.lang, ui = LANGS[lang].ui;
+  const s = STORIES[i];
+  if(qi >= s.q.length){ // done
+    const st = loadState(lang);
+    st.st = st.st || {};
+    st.st[i] = 1;
+    saveState(lang, st);
+    const streak = bumpStreak();
+    app.innerHTML = `<div class="prompt">
+        <div class="donebig">${right===s.q.length? "🎉":"📖"}</div>
+        <div class="word">${ui.storyDone}</div>
+        <div class="sub" style="margin-top:8px">${right}/${s.q.length} · 🔥 ${streak} ${ui.streak}</div>
+      </div>
+      <button class="actionbtn" onclick="openLang('${lang}', true)">${ui.cont}</button>`;
+    return;
+  }
+  const Q = s.q[qi];
+  const correctText = Q.o[lang][0];
+  const opts = shuffle(Q.o[lang].slice());
+  app.innerHTML = `<div class="top">
+    <button class="backbtn" onclick="renderStory(${i})">←</button>
+    <h1 style="font-size:1.1rem">${ui.quiz} ${qi+1}/${s.q.length}</h1><span style="width:44px"></span></div>
+    <div class="prompt" style="min-height:100px;flex:0">
+      <div class="word" style="font-size:1.25rem">${esc(Q.q[lang])}</div></div>
+    <div class="opts">` + opts.map(o=>
+      `<button class="opt" style="font-size:1rem" data-ok="${o===correctText?1:0}"
+        onclick="answerStoryQ(this,${i},${qi},${right})">${esc(o)}</button>`
+    ).join("") + `</div><div class="feedback" id="fb"></div>`;
+}
+function answerStoryQ(btn, i, qi, right){
+  const opts = document.querySelectorAll(".opt");
+  opts.forEach(o=>o.onclick=null);
+  const ui = LANGS[cur.lang].ui;
+  const ok = btn.dataset.ok==="1";
+  btn.classList.add(ok? "good":"bad");
+  if(!ok) opts.forEach(o=>{ if(o.dataset.ok==="1") o.classList.add("good"); });
+  document.getElementById("fb").innerHTML = ok
+    ? `<div class="fw good">${ui.correct}</div>`
+    : `<div class="fw bad">${ui.wrong}</div>`;
+  setTimeout(()=>renderStoryQ(i, qi+1, right+(ok?1:0)), ok? 1000:2200);
 }
 function setVoice(uri){
   lsSet("pictolingo-voice-"+cur.lang, uri);
@@ -341,7 +440,7 @@ function tapPack(k){
   if(unseen.length) return startLearn(k);
   // pack complete → mixed practice on this pack
   const pick = shuffle(ids).slice(0, 10);
-  const kinds = ["choice","choice","match","type","type","type"];
+  const kinds = ["choice","choice","match","listen","type","type"];
   startSession(pick.map(id=>({id, kind:kinds[Math.min(st.cards[id].b,5)]})), true);
 }
 function startLearn(k){
@@ -355,7 +454,7 @@ function startLearn(k){
 }
 function startReview(){
   const st = loadState(cur.lang);
-  const wKinds = ["choice","choice","match","type","type","type"];
+  const wKinds = ["choice","choice","match","listen","type","type"];
   const pKinds = ["pchoice","pchoice","build","cloze","cloze","cloze"];
   const items = dueIds(cur.lang, st).map(id=>({id, kind:wKinds[Math.min(st.cards[id].b,5)]}))
     .concat(duePh(cur.lang, st).map(id=>({id, kind:pKinds[Math.min(st.ph[id].b,5)], ph:1})));
@@ -381,8 +480,39 @@ function startPractice(mode){
   const st = loadState(cur.lang);
   const seen = Object.keys(st.cards).map(Number);
   const ids = shuffle(seen).slice(0, 10);
-  const kind = ["choice","match","type"][mode];
+  const kind = ["choice","match","type","listen"][mode];
   startSession(ids.map(id=>({id, kind})), true);
+}
+function troubleIds(st){
+  return Object.keys(st.cards).filter(id=>(st.cards[id].w||0)>=2)
+    .sort((a,b)=>(st.cards[b].w||0)-(st.cards[a].w||0)).map(Number);
+}
+function startTrouble(){
+  const st = loadState(cur.lang);
+  const ids = troubleIds(st).slice(0, 10);
+  const kinds = ["choice","match","type"];
+  startSession(ids.map((id,i)=>({id, kind:kinds[i%3]})), true);
+}
+/* daily streak */
+function getStreak(){
+  try{
+    const s = JSON.parse(lsGet("pictolingo-streak")||"{}");
+    const today = new Date().toISOString().slice(0,10);
+    const yest = new Date(Date.now()-864e5).toISOString().slice(0,10);
+    return (s.last===today || s.last===yest)? (s.n||0) : 0;
+  }catch(e){ return 0; }
+}
+function bumpStreak(){
+  const today = new Date().toISOString().slice(0,10);
+  const yest = new Date(Date.now()-864e5).toISOString().slice(0,10);
+  let s = {};
+  try{ s = JSON.parse(lsGet("pictolingo-streak")||"{}"); }catch(e){}
+  if(s.last !== today){
+    s.n = (s.last===yest? (s.n||0)+1 : 1);
+    s.last = today;
+    lsSet("pictolingo-streak", JSON.stringify(s));
+  }
+  return s.n||1;
 }
 function startSession(queue, practice){
   cur.screen = "session";
@@ -405,7 +535,7 @@ function renderCard(){
   if(kind==="learn"){
     html += `<div class="prompt">
       <div class="learnlabel">✨ ${ui.newword}</div>
-      <div class="bigemoji">${emojiFor(id)}</div>
+      ${bigEmojiHtml(id)}
       <div class="word">${esc(w.text)}</div>
       ${chipHtml(w, lang)}
       <button class="speak" onclick="speak(wordFor(${id},'${lang}').text,'${lang}')">🔊</button>
@@ -418,12 +548,24 @@ function renderCard(){
 
   if(kind==="choice"){ // image -> pick word
     const opts = shuffle([id, ...distractors(id, 3)]);
-    html += `<div class="prompt"><div class="bigemoji">${emojiFor(id)}</div></div>
+    html += `<div class="prompt">${bigEmojiHtml(id)}</div>
       <div class="opts">` + opts.map(o=>{
         const ow = wordFor(o, lang);
         return `<button class="opt" data-id="${o}" onclick="answerChoice(this,${o},${id})">${esc(ow.text)}</button>`;
       }).join("") + `</div><div class="feedback" id="fb"></div>`;
     app.innerHTML = html;
+    return;
+  }
+
+  if(kind==="listen"){ // audio only -> pick image (no text shown)
+    const opts = shuffle([id, ...distractors(id, 3)]);
+    html += `<div class="prompt" style="min-height:120px">
+      <button class="speak" style="width:80px;height:80px;font-size:2.2rem" onclick="speak(wordFor(${id},'${lang}').text,'${lang}')">🔊</button></div>
+      <div class="opts grid">` + opts.map(o=>
+        `<button class="opt" style="${optEmojiStyle(o)}" data-id="${o}" onclick="answerChoice(this,${o},${id})">${emojiFor(o)}</button>`
+      ).join("") + `</div><div class="feedback" id="fb"></div>`;
+    app.innerHTML = html;
+    speak(w.text, lang);
     return;
   }
 
@@ -434,7 +576,7 @@ function renderCard(){
       ${chipHtml(w, lang)}
       <button class="speak" onclick="speak(wordFor(${id},'${lang}').text,'${lang}')">🔊</button></div>
       <div class="opts grid">` + opts.map(o=>
-        `<button class="opt" data-id="${o}" onclick="answerChoice(this,${o},${id})">${emojiFor(o)}</button>`
+        `<button class="opt" style="${optEmojiStyle(o)}" data-id="${o}" onclick="answerChoice(this,${o},${id})">${emojiFor(o)}</button>`
       ).join("") + `</div><div class="feedback" id="fb"></div>`;
     app.innerHTML = html;
     speak(w.text, lang);
@@ -442,7 +584,7 @@ function renderCard(){
   }
 
   // type: image -> write word
-  html += `<div class="prompt"><div class="bigemoji">${emojiFor(id)}</div></div>
+  html += `<div class="prompt">${bigEmojiHtml(id)}</div>
     <div class="typebox"><input id="ti" type="text" autocomplete="off" autocapitalize="none"
       placeholder="${ui.type}" onkeydown="if(event.key==='Enter')checkType(${id})"></div>
     <div class="feedback" id="fb"></div>
@@ -628,9 +770,11 @@ function grade(id, correct){
   if(correct){
     c.b = Math.min(c.b+1, 5);
     c.d = Date.now() + INTERVALS_DAYS[c.b]*DAY;
+    if(c.w) c.w = Math.max(0, c.w-1);
   }else{
     c.b = 1;
     c.d = Date.now() + 10*60000;
+    c.w = (c.w||0)+1; // lapse counter feeds the trouble deck
     cur.queue.push({id, kind:"choice"}); // retry this session
   }
   st.cards[id] = c;
@@ -689,10 +833,12 @@ function checkType(id){
 function renderDone(){
   const ui = LANGS[cur.lang].ui;
   const acc = cur.total? Math.round(cur.right/cur.total*100):100;
+  const streak = bumpStreak();
   app.innerHTML = `<div class="prompt">
       <div class="donebig">${acc>=80? "🎉": acc>=50? "💪":"🌱"}</div>
       <div class="word">${ui.done}</div>
       <div class="sub" style="margin-top:8px">${cur.right}/${cur.total} · ${acc}% ${ui.accuracy}</div>
+      <div class="sub" style="margin-top:6px">🔥 ${streak} ${ui.streak}</div>
     </div>
     <button class="actionbtn" onclick="openLang('${cur.lang}', true)">${ui.cont}</button>`;
 }
@@ -707,5 +853,8 @@ window.tapPPack=tapPPack; window.answerPLearn=answerPLearn; window.answerPChoice
 window.answerCloze=answerCloze; window.tapTile=tapTile; window.untapTile=untapTile;
 window.speakPhrase=speakPhrase;
 window.exportProgress=exportProgress; window.importProgress=importProgress;
+window.startTrouble=startTrouble;
+window.renderStory=renderStory; window.renderStoryQ=renderStoryQ;
+window.answerStoryQ=answerStoryQ; window.speakStory=speakStory;
 
 renderHome();

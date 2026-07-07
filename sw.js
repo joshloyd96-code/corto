@@ -1,6 +1,6 @@
 /* PictoLingo service worker — cache-first for full offline use.
    Bump CACHE version whenever any file changes. */
-const CACHE = "pictolingo-v3.0.0";
+const CACHE = "pictolingo-v3.4.0";
 const ASSETS = [
   ".",
   "index.html",
@@ -8,6 +8,7 @@ const ASSETS = [
   "js/app.js",
   "data/vocab.js",
   "data/phrases.js",
+  "data/stories.js",
   "manifest.webmanifest",
   "icons/icon.svg",
   "icons/icon-192.png",
