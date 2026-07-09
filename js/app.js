@@ -1,4 +1,4 @@
-/* PictoLingo app logic. Data loaded from data/vocab.js and data/phrases.js */
+/* Corto app logic. Data loaded from data/vocab.js and data/phrases.js */
 "use strict";
 const VOCAB=window.VOCAB, PACKS=window.PACKS, PPACKS=window.PPACKS,
       PHRASES=window.PHRASES, WARMUPS=window.WARMUPS, STORIES=window.STORIES||[];
@@ -184,7 +184,7 @@ function renderHome(){
   stopSpeech();
   cur = {lang:null, screen:"home"};
   const streak = getStreak();
-  let html = `<div class="top"><div><h1>PictoLingo</h1>
+  let html = `<div class="top"><div><h1>Corto</h1>
     <div class="sub">See it. Say it. No translation.</div></div>
     ${streak? `<div class="stat" style="flex:0 0 auto;padding:10px 16px"><div class="n">🔥${streak}</div></div>`:""}</div>`;
   for(const lang of ["fr","es","it"]){
@@ -220,7 +220,7 @@ function exportProgress(){
   const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "pictolingo-progress.json";
+  a.download = "corto-progress.json";
   a.click();
   URL.revokeObjectURL(a.href);
 }

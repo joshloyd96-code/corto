@@ -1,6 +1,6 @@
-/* PictoLingo service worker — cache-first for full offline use.
+/* Corto service worker — cache-first for full offline use.
    Bump CACHE version whenever any file changes. */
-const CACHE = "pictolingo-v3.4.0";
+const CACHE = "corto-v3.5.0";
 const ASSETS = [
   ".",
   "index.html",

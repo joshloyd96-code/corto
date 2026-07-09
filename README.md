@@ -1,10 +1,11 @@
-# PictoLingo
+# Corto
 
 Learn French, Spanish & Italian vocab straight from images — no translation step.
 
-**390 words** across 19 themed packs, **40 situational phrases** across 5 scenarios, per
-language. Spaced repetition (Leitner), audio via your device's speech synthesis, and a
-15-second "immersion" warm-up whenever you switch languages.
+**655 words** across 22 themed packs, **122 phrases** across 11 scenarios, and **12 graded
+stories**, per language. Spaced repetition (Leitner), listening mode, trouble-words deck,
+daily streaks, audio via your device's speech synthesis, and a 15-second "immersion"
+warm-up whenever you switch languages.
 
 ## Run it
 

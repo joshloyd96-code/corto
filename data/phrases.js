@@ -1,4 +1,4 @@
-/* PictoLingo phrase data.
+/* Corto phrase data.
    Scene tableaux carry the meaning — no translation anywhere.
    [word] brackets mark the cloze-blank word. "»" splits a two-panel scene.
    Append only — indexes are saved-progress keys. */

@@ -1,4 +1,4 @@
-/* PictoLingo graded readers — comprehensible input.
+/* Corto graded readers — comprehensible input.
    Built from app vocabulary plus the high-frequency function words
    (toujours, mais, parce que, rien, quelque chose…) so they get massed
    exposure in context. Questions: correct answer is always index 0;

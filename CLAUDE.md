@@ -1,4 +1,4 @@
-# PictoLingo — context for future Claude sessions
+# Corto (formerly PictoLingo) — context for future Claude sessions
 
 Read this and README.md before making changes. Built July 2026 with Josh
 (josh@thrustcarbon.com). Live at https://joshloyd96-code.github.io/PictoLingo/

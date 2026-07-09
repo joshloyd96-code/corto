@@ -1,4 +1,4 @@
-/* PictoLingo vocabulary data.
+/* Corto vocabulary data.
    [emoji, french, spanish, italian, pack]
    Nouns include the article; gender derives from it. Overrides after "|":
    m/f/pl (ambiguous articles), v (verb), a (adjective).
